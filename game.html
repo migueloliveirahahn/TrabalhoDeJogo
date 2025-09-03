@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>American Eagle Quest — 3-Phase Platformer</title>
+  <style>
+    :root {
+      --bg: #0b1020;
+      --fg: #e8ecf1;
+      --accent: #5dd4ff;
+      --accent2: #ff6b6b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: radial-gradient(1200px 600px at 50% 0%, #17223e, var(--bg));
+      color: var(--fg);
+      font: 14px/1.3 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      display: grid;
+      place-items: center;
+      gap: 12px;
+      padding: 10px;
+    }
+
+    .wrap {
+      width: min(960px, 98vw);
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: .4px;
+      font-weight: 700;
+    }
+
+    .hud {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .tag {
+      padding: 6px 10px;
+      border: 1px solid #2a355a;
+      border-radius: 999px;
+      background: #0d1530aa;
+    }
+
+    canvas {
+      width: 100%;
+      height: auto;
+      border-radius: 12px;
+      background: linear-gradient(#1a2244, #0b1020);
+      box-shadow: 0 20px 60px #0006, 0 0 0 1px #233;
+    }
+
+    footer {
+      opacity: .75;
+      text-align: center;
+      margin-top: 8px;
+    }
+
+    /* UI dialog */
+    .dialog,
+    .overlay {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+    }
+
+    .overlay {
+      background: #0009;
+    }
+
+    .dialog.show,
+    .overlay.show {
+      display: grid;
+    }
+
+    .panel {
+      width: min(560px, 92vw);
+      background: #0d1633;
+      color: var(--fg);
+      border: 1px solid #2a355a;
+      border-radius: 14px;
+      padding: 16px 16px 12px;
+      box-shadow: 0 20px 60px #0009, inset 0 1px 0 #2a355a66;
+    }
+
+    .panel h2 {
+      margin: 0 0 6px;
+      font-size: 18px;
+    }
+
+    .panel p {
+      margin: 0 0 10px;
+    }
+
+    .choices {
+      display: grid;
+      gap: 8px;
+      margin: 8px 0 4px;
+    }
+
+    .choices button {
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #2a355a;
+      background: #0b122a;
+      color: var(--fg);
+      text-align: left;
+      cursor: pointer;
+      transition: transform .06s ease, background .2s;
+    }
+
+    .choices button:hover {
+      transform: translateY(-1px);
+      background: #0f1a37;
+    }
+
+    .choices button.correct {
+      outline: 2px solid #2cd46b;
+    }
+
+    .choices button.wrong {
+      outline: 2px solid var(--accent2);
+    }
+
+    .row {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .row .sm {
+      font-size: 12px;
+      opacity: .8;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid #2a355a;
+      background: #0b122a;
+      color: var(--fg);
+      cursor: pointer;
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: #0d1633;
+      border: 1px solid #2a355a;
+      border-radius: 10px;
+      padding: 8px 12px;
+      display: none;
+    }
+
+    .toast.show {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+
+
+  <div class="wrap">
+    <header>
+      <h1>American Eagle Quest</h1>
+      <div class="hud">
+        <div class="tag" id="levelTag">Phase 1/3</div>
+        <div class="tag" id="livesTag">Lives: 3</div>
+        <div class="tag" id="scoreTag">Score: 0</div>
+      </div>
+    </header>
+    <canvas id="game" width="900" height="510" aria-label="Game canvas" role="img"></canvas>
+    <footer>
+      Controls: ← → to move, ↑ / W to jump, <kbd>Space</kbd> to interact | Goal: answer culture questions to unlock each
+      exit and reach the eagle in Phase 3.
+    </footer>
+  </div>
+
+  <div class="overlay" id="overlay"></div>
+  <div class="dialog" id="dialog">
+    <div class="panel">
+      <h2 id="qTitle">Quiz</h2>
+      <p id="qText">Question goes here…</p>
+      <div class="choices" id="choices"></div>
+      <div class="row"><button class="btn" id="closeBtn" style="display:none">Continue</button></div>
+      <p class="sm" id="msg"></p>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Unlocked!</div>
+
+  <script>
+    (function () {
+      const canvas = document.getElementById('game');
+      const ctx = canvas.getContext('2d');
+      const W = canvas.width, H = canvas.height;
+
+      // UI elements
+      const levelTag = document.getElementById('levelTag');
+      const livesTag = document.getElementById('livesTag');
+      const scoreTag = document.getElementById('scoreTag');
+      const overlay = document.getElementById('overlay');
+      const dialog = document.getElementById('dialog');
+      const qText = document.getElementById('qText');
+      const qTitle = document.getElementById('qTitle');
+      const choicesEl = document.getElementById('choices');
+      const closeBtn = document.getElementById('closeBtn');
+      const msgEl = document.getElementById('msg');
+      const toast = document.getElementById('toast');
+
+      let keys = {};
+      onkeydown = onkeyup = (e) => { keys[e.key.toLowerCase()] = e.type === 'keydown'; if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(e.key.toLowerCase())) e.preventDefault(); };
+
+      function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+      function aabb(a, b) { return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
+
+      // Player
+      const player = { x: 60, y: H - 120, w: 24, h: 32, vx: 0, vy: 0, onGround: false, dir: 1, alive: true };
+
+      // Game state
+      let levelIndex = 0; // 0..2
+      let lives = 3;
+      let score = 0;
+
+      // Entities per level
+      function rect(x, y, w, h, type = 'solid') { return { x, y, w, h, type }; }
+      function hazard(x, y, w, h) { return { x, y, w, h, type: 'hazard' }; }
+      function gate(x, y, w, h) { return { x, y, w, h, type: 'gate', open: false }; }
+      function exitDoor(x, y, w, h) { return { x, y, w, h, type: 'exit' }; }
+      function questionBlock(x, y, w, h, qid) { return { x, y, w, h, type: 'question', qid, used: false }; }
+      function movingPlatform(x, y, w, h, dx, dy, range) { return { x, y, w, h, type: 'moving', ox: x, oy: y, dx, dy, range, t: 0 }; }
+      function bird(x, y) { return { x, y, w: 36, h: 26, type: 'bird' }; }
+
+      // Quiz data (American culture)
+      const QUESTIONS = [
+        { q: "What is the national bird of the United States?", answers: ["Bald eagle", "Golden eagle", "Hawk", "Condor"], correct: 0, note: "The bald eagle became the national bird in 1782." },
+        { q: "Which date is celebrated as Independence Day?", answers: ["July 4, 1776", "June 14, 1776", "July 14, 1776", "September 17, 1787"], correct: 0, note: "The Declaration of Independence was approved on July 4, 1776." },
+        { q: "What is the capital of the United States?", answers: ["New York City", "Washington, D.C.", "Philadelphia", "Boston"], correct: 1, note: "Washington, D.C. has been the capital since 1800." },
+        { q: "Which sport is often called 'America's pastime'?", answers: ["Basketball", "Football", "Baseball", "Hockey"], correct: 2, note: "Baseball earned the nickname in the 19th century." },
+        { q: "Thanksgiving in the U.S. is celebrated in which month?", answers: ["October", "November", "December", "September"], correct: 1, note: "It's the fourth Thursday in November." },
+        { q: "The Statue of Liberty was a gift from which country?", answers: ["United Kingdom", "Spain", "France", "Italy"], correct: 2, note: "France gifted it in 1886." },
+        { q: "The U.S. flag has how many stripes?", answers: ["10", "11", "13", "15"], correct: 2, note: "13 stripes for the original colonies." },
+      ];
+
+      // Level layouts
+      const LEVELS = [
+        function level1() {
+          const solids = [
+            rect(0, H - 40, W, 40), // ground
+            rect(0, 0, 40, H), rect(W - 40, 0, 40, H), // walls
+            rect(140, H - 120, 180, 20),
+            rect(360, H - 200, 160, 20),
+            rect(580, H - 260, 120, 20),
+          ];
+          const hazards = [hazard(280, H - 40 - 12, 50, 12)];
+          const mover = [];
+          const questions = [
+            questionBlock(390, H - 220, 20, 20, 0), // Q0
+          ];
+          const theGate = gate(W - 120, H - 80, 20, 40);
+          const exit = exitDoor(W - 80, H - 100, 40, 60);
+          return { solids, hazards, movers: mover, questions, gate: theGate, exit, eagle: null, needed: 1 };
+        },
+        function level2() {
+          const solids = [rect(0, H - 40, W, 40), rect(0, 0, 40, H), rect(W - 40, 0, 40, H), rect(120, H - 140, 140, 16), rect(340, H - 220, 120, 16), rect(520, H - 300, 120, 16)];
+          const hazards = [hazard(240, H - 40 - 12, 60, 12), hazard(420, H - 40 - 12, 60, 12)];
+          const movers = [movingPlatform(700, H - 240, 100, 14, 0, -1, 120)];
+          const questions = [questionBlock(130, H - 160, 20, 20, 3), questionBlock(540, H - 320, 20, 20, 4)];
+          const theGate = gate(W - 140, H - 120, 20, 40);
+          const exit = exitDoor(W - 100, H - 140, 40, 60);
+          return { solids, hazards, movers, questions, gate: theGate, exit, eagle: null, needed: 2 };
+        },
+        function level3() {
+          const solids = [rect(0, H - 40, W, 40), rect(0, 0, 40, H), rect(W - 40, 0, 40, H), rect(140, H - 120, 120, 16), rect(320, H - 200, 120, 16), rect(500, H - 260, 120, 16), rect(680, H - 320, 140, 16)];
+          const hazards = [hazard(260, H - 40 - 12, 60, 12), hazard(440, H - 40 - 12, 60, 12), hazard(620, H - 40 - 12, 60, 12)];
+          const movers = [movingPlatform(360, H - 240, 100, 14, 1, 0, 140)];
+          const questions = [questionBlock(150, H - 140, 20, 20, 1), questionBlock(520, H - 280, 20, 20, 2), questionBlock(700, H - 340, 20, 20, 5), questionBlock(740, H - 340, 20, 20, 6)];
+          const theGate = gate(W - 160, H - 360, 20, 40);
+          const exit = exitDoor(W - 120, H - 380, 40, 60);
+          const eagle = bird(W - 100, H - 380 - 26);
+          return { solids, hazards, movers, questions, gate: theGate, exit, eagle, needed: 3 };
+        }
+      ];
+
+      let level = LEVELS[levelIndex]();
+      let answeredThisLevel = 0;
+
+      function resetPlayer() {
+        player.x = 60; player.y = H - 120; player.vx = 0; player.vy = 0; player.onGround = false; player.alive = true; player.dir = 1;
+      }
+
+      function restartLevel() { resetPlayer(); }
+
+      function nextLevel() {
+        levelIndex = Math.min(2, levelIndex + 1);
+        level = LEVELS[levelIndex]();
+        answeredThisLevel = 0;
+        resetPlayer();
+        updateHud();
+        showToast(`Phase ${levelIndex + 1} / 3`);
+      }
+
+      function updateHud() {
+        levelTag.textContent = `Phase ${levelIndex + 1}/3`;
+        livesTag.textContent = `Lives: ${lives}`;
+        scoreTag.textContent = `Score: ${score}`;
+      }
+
+      function openDialog(q) {
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+        qTitle.textContent = 'Culture Quiz';
+        qText.textContent = q.q;
+        msgEl.textContent = '';
+        closeBtn.style.display = 'none';
+        choicesEl.innerHTML = '';
+
+        q.answers.forEach((txt, idx) => {
+          const b = document.createElement('button');
+          b.textContent = txt;
+          b.onclick = () => {
+            if (idx === q.correct) {
+              b.classList.add('correct');
+              msgEl.textContent = q.note;
+              score += 50;
+              answeredThisLevel++;
+              closeBtn.style.display = 'inline-block';
+              Array.from(choicesEl.children).forEach(ch => ch.disabled = true);
+              if (answeredThisLevel >= level.needed) { level.gate.open = true; showToast('Gate unlocked! Find the exit →'); }
+              updateHud();
+            } else {
+              b.classList.add('wrong');
+              msgEl.textContent = 'Not quite. Try another option!';
+            }
+          };
+          choicesEl.appendChild(b);
+        });
+      }
+
+      closeBtn.addEventListener('click', () => { overlay.classList.remove('show'); dialog.classList.remove('show'); });
+      overlay.addEventListener('click', () => { /* block clicks */ });
+
+      function showToast(text) {
+        toast.textContent = text;
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 1500);
+      }
+
+      // Physics constants
+      const GRAV = 0.6, FRICTION = 0.8, MOVE = 0.9, SPEED = 3.0, JUMP = 12.0;
+
+      function step(dt) {
+        // input
+        const left = keys['arrowleft'] || keys['a'];
+        const right = keys['arrowright'] || keys['d'];
+        const up = keys['arrowup'] || keys['w'];
+        const interact = keys[' '];
+
+        if (left) { player.vx -= MOVE; player.dir = -1; }
+        if (right) { player.vx += MOVE; player.dir = 1; }
+        player.vx = clamp(player.vx, -SPEED, SPEED);
+
+        if (up && player.onGround) { player.vy = -JUMP; player.onGround = false; }
+
+        // gravity
+        player.vy += GRAV;
+
+        // move X
+        player.x += player.vx;
+        collideSolids('x');
+
+        // move Y
+        player.y += player.vy;
+        collideSolids('y');
+
+        // friction
+        if (player.onGround) player.vx *= FRICTION; else player.vx *= 0.99;
+
+        // Movers update (and carry player when standing)
+        level.movers.forEach(m => {
+          m.t += dt;
+          const nx = m.ox + Math.cos((m.dx ? 1 : 0) * 0 + m.t * m.dx) * (m.dx ? m.range : 0);
+          const ny = m.oy + Math.sin((m.dy ? 1 : 0) * 0 + m.t * m.dy) * (m.dy ? m.range : 0);
+          const prev = { x: m.x, y: m.y };
+          m.x = nx; m.y = ny;
+          // simple carry: if player stands on top, move by delta
+          if (player.y + player.h <= prev.y + 4 && aabb(player, { x: m.x, y: m.y, w: m.w, h: m.h })) {
+            const dx = m.x - prev.x, dy = m.y - prev.y;
+            player.x += dx; player.y += dy;
+          }
+        });
+
+        // hazards
+        for (const hz of level.hazards) { if (aabb(player, hz)) death(); }
+
+        // questions (interaction)
+        let nearQ = null;
+        for (const q of level.questions) {
+          if (!q.used && aabb(player, { x: q.x - 6, y: q.y - 6, w: q.w + 12, h: q.h + 12 })) nearQ = q;
+        }
+        if (nearQ && interact && !dialog.classList.contains('show')) {
+          const data = QUESTIONS[nearQ.qid];
+          openDialog(data);
+          nearQ.used = true;
+        }
+
+        // gate / exit
+        if (level.gate) {
+          if (!level.gate.open && aabb(player, level.gate)) player.x += player.dir * -4; // bump back
+        }
+        if (aabb(player, level.exit)) {
+          if (levelIndex < 2) { nextLevel(); }
+          else {
+            // Win state
+            showEnd(true);
+          }
+        }
+      }
+
+      function collideSolids(axis) {
+        player.onGround = false;
+        const solids = [...level.solids, ...level.movers];
+        for (const s of solids) {
+          if (!aabb(player, s)) continue;
+          if (axis === 'x') {
+            if (player.vx > 0) player.x = s.x - player.w; else if (player.vx < 0) player.x = s.x + s.w;
+            player.vx = 0;
+          } else {
+            if (player.vy > 0) { player.y = s.y - player.h; player.vy = 0; player.onGround = true; }
+            else if (player.vy < 0) { player.y = s.y + s.h; player.vy = 0; }
+          }
+        }
+      }
+
+      function death() {
+        lives--; updateHud();
+        if (lives <= 0) { showEnd(false); }
+        else { restartLevel(); showToast('Ouch!'); }
+      }
+
+      function showEnd(win) {
+        overlay.classList.add('show');
+        dialog.classList.add('show');
+        qTitle.textContent = win ? 'You reached the Eagle!' : 'Game Over';
+        qText.textContent = win ? 'Congrats! You answered the culture quizzes and reunited with the eagle in Phase 3.' : 'You ran out of lives. Try again!';
+        choicesEl.innerHTML = '';
+        msgEl.textContent = '';
+        closeBtn.style.display = 'inline-block';
+        closeBtn.onclick = () => {
+          // reset full game
+          levelIndex = 0; level = LEVELS[levelIndex](); lives = 3; score = 0; answeredThisLevel = 0; resetPlayer(); updateHud();
+          overlay.classList.remove('show'); dialog.classList.remove('show');
+        };
+      }
+
+      // Render helpers
+      function draw() {
+        ctx.clearRect(0, 0, W, H);
+        // sky gradient
+        const g = ctx.createLinearGradient(0, 0, 0, H);
+        g.addColorStop(0, '#0f1e44'); g.addColorStop(1, '#090d1c');
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+        // stars
+        ctx.fillStyle = '#ffffff20';
+        for (let i = 0; i < 60; i++) { ctx.fillRect((i * 73) % W, (i * 91) % 200, 2, 2); }
+
+        // platforms
+        level.solids.forEach(s => { drawBlock(s.x, s.y, s.w, s.h, '#22325c', '#1a2747'); });
+        level.movers.forEach(s => { drawBlock(s.x, s.y, s.w, s.h, '#4a7bd8', '#31579b'); });
+
+        // hazards (spikes-rect)
+        level.hazards.forEach(hz => { drawSpikes(hz.x, hz.y, hz.w, hz.h); });
+
+        // gate
+        if (level.gate) {
+          if (!level.gate.open) drawGate(level.gate.x, level.gate.y, level.gate.w, level.gate.h);
+          else drawOpenGate(level.gate.x, level.gate.y, level.gate.w, level.gate.h);
+        }
+
+        // exit
+        drawExit(level.exit.x, level.exit.y, level.exit.w, level.exit.h);
+
+        // questions
+        level.questions.forEach(q => drawQuestion(q.x, q.y, q.w, q.h, q.used));
+
+        // eagle (level 3)
+        if (level.eagle) drawEagle(level.eagle.x, level.eagle.y);
+
+        // player
+        drawPlayer();
+      }
+
+      function drawBlock(x, y, w, h, top = '#2a3d6c', side = '#21345c') {
+        ctx.fillStyle = side; ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = top; ctx.fillRect(x, y, w, 6);
+        ctx.strokeStyle = '#00000030'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      }
+      function drawSpikes(x, y, w, h) {
+        ctx.fillStyle = '#b84c4c'; ctx.fillRect(x, y, w, h);
+        ctx.fillStyle = '#ffd1d1';
+        const n = Math.max(3, Math.floor(w / 12));
+        for (let i = 0; i < n; i++) {
+          const bx = x + (i + 0.5) * w / n; const bw = w / n;
+          ctx.beginPath(); ctx.moveTo(bx - bw * 0.5, y + h); ctx.lineTo(bx, y); ctx.lineTo(bx + bw * 0.5, y + h); ctx.closePath(); ctx.fill();
+        }
+      }
+      function drawGate(x, y, w, h) { drawBlock(x, y, w, h, '#9aa7c9', '#4a5574'); }
+      function drawOpenGate(x, y, w, h) { ctx.strokeStyle = '#4a5574'; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); }
+      function drawExit(x, y, w, h) { drawBlock(x, y, w, h, '#36d1a1', '#16785d'); ctx.fillStyle = '#0b122a'; ctx.fillRect(x + 8, y + 8, w - 16, h - 16); }
+      function drawQuestion(x, y, w, h, used) {
+        drawBlock(x, y, w, h, used ? '#777' : '#ffd166', used ? '#666' : '#d1a53c');
+        ctx.fillStyle = used ? '#333' : '#2b2b2b'; ctx.font = 'bold 14px system-ui'; ctx.textAlign = 'center'; ctx.fillText('?', x + w / 2, y + h - 5);
+      }
+      function drawEagle(x, y) {
+        // simple stylized eagle
+        ctx.save();
+        ctx.translate(x, y);
+        // body
+        ctx.fillStyle = '#4b3a2b'; ctx.fillRect(0, 6, 36, 18);
+        // wing
+        ctx.fillStyle = '#3a2d21'; ctx.beginPath(); ctx.moveTo(10, 10); ctx.quadraticCurveTo(2, -6, -6, 6); ctx.quadraticCurveTo(4, 18, 10, 10); ctx.fill();
+        // head
+        ctx.fillStyle = '#f2f2f2'; ctx.fillRect(28, 0, 10, 10);
+        // beak
+        ctx.fillStyle = '#f2c14e'; ctx.beginPath(); ctx.moveTo(38, 5); ctx.lineTo(46, 8); ctx.lineTo(38, 10); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
+      function drawPlayer() {
+        const p = player;
+        // shadow
+        ctx.fillStyle = '#0008'; ctx.beginPath(); ctx.ellipse(p.x + p.w / 2, p.y + p.h, 10, 4, 0, 0, Math.PI * 2); ctx.fill();
+        // body
+        ctx.fillStyle = '#5dd4ff'; ctx.fillRect(p.x, p.y, p.w, p.h);
+        // visor
+        ctx.fillStyle = '#0b122a'; ctx.fillRect(p.x + 4, p.y + 6, p.w - 8, 10);
+        // stripe
+        ctx.fillStyle = '#fff'; ctx.fillRect(p.x, p.y + 20, p.w, 4);
+      }
+
+      // Game loop
+      let last = 0;
+      function loop(ts) {
+        const dt = Math.min(33, ts - last) / 1000; last = ts;
+        step(dt);
+        draw();
+        requestAnimationFrame(loop);
+      }
+
+      // Init
+      resetPlayer(); updateHud(); requestAnimationFrame(loop);
+
+    })();
+  </script>
+</body>
+
+</html>
