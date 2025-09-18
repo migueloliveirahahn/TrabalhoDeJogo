@@ -1,73 +1,24 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <title>American Eagle Quest</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      background-color: black;
+      overflow: hidden;
+    }
 
-    <title>American Eagle Quest</title>
-
-    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet" />
-
-    <link rel="stylesheet" href="style.css" />
-
+    canvas {
+      display: block;
+      margin: 0 auto;
+    }
+  </style>
 </head>
-
-
 <body>
-
-
-    <ul class="navbar">
-        <li><a href="#home">Início</a></li>
-        <li><a href="#sobre">Sobre</a></li>
-        <li><a href="#demonstração">Demonstração</a></li>
-    </ul>
-
-
-    <img src="assets/logo.png" alt="logo" width="420"
-        style="display: block; margin: 0 auto;" />
-    <div class="card" id="sobre">
-        <h2>About the game:</h2>
-        <h3>
-            Help Uncle Sam defeat the communists with knowledge of American history.
-        </h3>
-    </div>
-
-
-    <div class="card">
-        <h2>How it works?</h2>
-        <h3>
-        A fun and educational platform game where your goal is to reach the top while answering questions about American
-        and British history.
-        Get the answers right to unlock doors and progress through the levels — but beware: mistakes cost lives!
-        </h3>
-    </div>
-
-
-    <div class="card">
-        <h2>Game features</h2>
-        <h3>
-            • History quiz<br />
-            • 🎮 Single-player gameplay<br />
-            • 🧠 Educational focus<br />
-            • ⚔️ Platform + Quiz hybrid<br />
-            • 📚 Great for students and classroom presentations <br />
-        </h3>
-    </div>
-
-
-    <!-- Botão redireciona para game.html -->
-    <form action="game.html">
-        <button class="pixel-button blinking-button">Jogar</button>
-    </form>
-
-    <footer>
-        <small>&copy;2025 Todos os direitos reservados.</small>
-    </footer>
-
-
-    <img src="assets/image-removebg-preview.png" alt="uncle-sam" width="200"
-        style="float: right; margin-left: 10px;" />
-
-
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+  <script src="game.js"></script>
 </body>
+</html>
